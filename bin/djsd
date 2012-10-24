@@ -33,16 +33,13 @@ dotjs = Class.new(WEBrick::HTTPServlet::AbstractServlet) do
     until paths.empty?
       sub = paths.join('.')
       if sub == domain
-        add.call("#{sub}.js")
         Dir["#{sub}/*.js"].reverse.each {|file| add.call(file) }
       end
       Dir[".#{sub}/*.js"].reverse.each {|file| add.call(file) }
-      add.call(".#{sub}.js")
       paths.shift
     end
 
-    add.call('default.js')
-    Dir['default/*.js'].reverse.each {|file| add.call(file) }
+    Dir['ALL/*.js'].reverse.each {|file| add.call(file) }
 
     body = "// dotjs is working! //\n"
 
