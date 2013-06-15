@@ -16,7 +16,7 @@ require 'webrick/https'
 
 dotjs = Class.new(WEBrick::HTTPServlet::AbstractServlet) do
   def do_GET(request, response)
-    body = build_body(request.path)
+    body = build_body(request.path.gsub(/\/|\.js$/,''))
 
     response.status = body.empty? ? 204 : 200
     if origin = detect_origin(request)
@@ -26,20 +26,27 @@ dotjs = Class.new(WEBrick::HTTPServlet::AbstractServlet) do
     response.body = body
   end
 
-  def build_body(path)
-    files = [File.expand_path("default.js")]
-    paths = path.gsub('/','').split('.')
+  def build_body(domain)
+    files = []
+    add = lambda {|file| files << file if File.file?(file) }
 
+    paths = domain.split('.')
     until paths.empty?
-      file = File.expand_path(paths.join('.'))
-      files << file if File.file?(file)
+      sub = paths.join('.')
+      if sub == domain
+        Dir["#{sub}/*.js"].reverse.each {|file| add.call(file) }
+      end
+      Dir[".#{sub}/*.js"].reverse.each {|file| add.call(file) }
       paths.shift
     end
 
+    Dir['ALL/*.js'].reverse.each {|file| add.call(file) }
+
     body = "// dotjs is working! //\n"
 
-    files.each do |file|
-      body << File.read(file) + "\n" if File.file?(file)
+    files.reverse.each do |file|
+      path = File.expand_path(file)
+      body << "// File: #{file}\n#{ File.read(path) }\n"
     end
 
     body

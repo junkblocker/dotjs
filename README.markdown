@@ -3,23 +3,41 @@
 dotjs  is a  Google Chrome  extension  that executes
 JavaScript files in `~/.js` based on their filename.
 
-If  you navigate to  `http://www.google.com/`, dotjs
-will execute `~/.js/google.com.js`.
+If you navigate to `http://github.com/`,  dotjs will
+execute   all   `~/.js/github.com/*.js`  files,   in
+alphabetical order.
 
 This makes it super  easy to spruce up your favorite
-pages using JavaScript.
+pages using JavaScript. The scripts in `github.com/`
+won't be run on sub-domains, like `gist.github.com`,
+`dotfiles.github.com`  et c,  where they might wreak
+all sorts of havoc from not seeing the kind of pages
+they were written for. (*)
 
-On subdomains such as `http://gist.github.com` dotjs
-will try to load `~/.js/gist.github.com.js`  as well
-as `~/.js/github.com.js` and `~/.js/com.js`.
+If you _want_ to run something on all `*.github.com`
+sites; `www.google.com`, `images.google.com`,  et c,
+you can put js files in `.google.com` instead. These
+will run before more specific files in `google.com`.
+
+For code you want to run on all sites, `ALL/*.js` is
+loaded first of all,  all over the web,  meaning you
+can stick plugins or helper functions in there.
 
 Bonus:  files  in `~/.js`  have jQuery 1.9  loaded,
 regardless  of  whether  the  site  you're  hacking
 uses jQuery.
 
-Double bonus: `~/.js/default.js`  is loaded on every
-request,  meaning you  can stick  plugins  or helper
-functions in it.
+(*) Double Bonus:  A handy tool  for writing scripts
+defensively, which automatically check if a page has
+all the script's DOM prerequisites before continuing
+-- and then helpfully hands you all those nodes in a
+well-named, structured manner is `on`, which you can
+find and fork here:  https://gist.github.com/3944489
+
+(a cool bonus of this practice, is that it separates
+page structure from script code, so you can see what
+assumptions about the page break, when sites evolve,
+and fix it -- often without needing to change logic)
 
 GreaseMonkey user scripts are great, but you need to
 publish them  somewhere and re-publish  after making
