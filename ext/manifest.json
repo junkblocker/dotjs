@@ -12,6 +12,8 @@
     "js":         ["jquery.js", "dotjs.js"]
   }],
   "permissions": [
-    "tabs"
+    "tabs",
+    "http://*/*",
+    "https://*/*"
   ]
 }
