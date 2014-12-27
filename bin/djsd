@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/ruby
 
 if (%w( -h --help -help help ) & ARGV).length > 0
   puts "usage: djsd [-hv]"
