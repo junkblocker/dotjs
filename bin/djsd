@@ -11,6 +11,7 @@ if ARGV.include?('-v')
   exit
 end
 
+require 'openssl'
 require 'webrick'
 require 'webrick/https'
 
@@ -63,19 +64,42 @@ dotjs = Class.new(WEBrick::HTTPServlet::AbstractServlet) do
   end
 end
 
-ssl_info = DATA.read
-ssl_cert = ssl_info.scan(/(-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----)/m)[0][0]
-ssl_key  = ssl_info.scan(/(-----BEGIN RSA PRIVATE KEY-----.+?-----END RSA PRIVATE KEY-----)/m)[0][0]
+ssl_key = ssl_cert = nil
+
+home_path = ENV.fetch("HOME")
+config_path = File.join(home_path, ".config", "dotjs")
+ssl_key_path = File.join(config_path, "server.key")
+ssl_cert_path = File.join(config_path, "server.crt")
+
+if File.exist? ssl_key_path and File.exist? ssl_cert_path
+  ssl_key = OpenSSL::PKey.read(IO.read(ssl_key_path))
+  ssl_cert = OpenSSL::X509::Certificate.new(IO.read(ssl_cert_path))
+end
+
+unless ssl_key and ssl_cert
+  ssl_key = OpenSSL::PKey::RSA.generate(2048)
+
+  ssl_cert = OpenSSL::X509::Certificate.new
+  ssl_cert.version = 2
+  ssl_cert.serial = 1
+  ssl_cert.subject = ssl_cert.issuer = OpenSSL::X509::Name.new([["CN", "localhost"]])
+  ssl_cert.public_key = ssl_key.public_key
+  ssl_cert.not_before = Time.now
+  ssl_cert.not_after = Time.now + (5 * 360 * 24 * 3600)
+  ssl_cert.sign ssl_key, OpenSSL::Digest::SHA256.new
+
+  system "mkdir", "-p", config_path
+  IO.write(ssl_key_path, ssl_key.to_pem, :perm => 0600)
+  IO.write(ssl_cert_path, ssl_cert.to_pem)
+end
 
 server_options = {
-  :BindAddress => "127.0.0.1",
+  :BindAddress => "localhost",
   :Port => 3131,
   :AccessLog => [],
   :SSLEnable => true,
-  :SSLVerifyClient => OpenSSL::SSL::VERIFY_NONE,
-  :SSLPrivateKey => OpenSSL::PKey::RSA.new(ssl_key),
-  :SSLCertificate => OpenSSL::X509::Certificate.new(ssl_cert),
-  :SSLCertName => [["CN", WEBrick::Utils::getservername]],
+  :SSLPrivateKey => ssl_key,
+  :SSLCertificate => ssl_cert,
 }
 
 server = WEBrick::HTTPServer.new(server_options)
@@ -86,34 +110,3 @@ server.mount('/', dotjs)
 end
 
 server.start
-
-__END__
------BEGIN CERTIFICATE-----
-MIICHTCCAYYCCQClZE2IvNWbtDANBgkqhkiG9w0BAQUFADBTMQswCQYDVQQGEwJV
-UzETMBEGA1UECBMKQ2FsaWZvcm5pYTELMAkGA1UEBxMCTEExDjAMBgNVBAoTBWRv
-dGpzMRIwEAYDVQQDEwlsb2NhbGhvc3QwHhcNMTMwMjIwMjMzNzUzWhcNMjIxMTIw
-MjMzNzUzWjBTMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTELMAkG
-A1UEBxMCTEExDjAMBgNVBAoTBWRvdGpzMRIwEAYDVQQDEwlsb2NhbGhvc3QwgZ8w
-DQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBAMNgNijoFmD5TX7NMd2pGEeEmwRifWRc
-45jVS1a5kUncfRfgr4ehygPQDS2XrUkd+OYneFIXOcANW9WAWAlfeLs8DiSgs+9m
-tuVjZ58RAsRXkW7H3vqQv5sAxmmwwVGN9WfKW+II/xLhpMtVGQH+MOucGbssODzk
-0vwXEGSeEqYdAgMBAAEwDQYJKoZIhvcNAQEFBQADgYEAgCW2RBZgDMikQenSF3sz
-u7KDe8+t8qnEFvrwCEpLUzvedSZxkaKzHrrCnIYlDnXRZBveKngWoejGzqtyIXup
-YKzBZaZWH8cV72RdDwgM1owWi3KZBKpxfphYkWSRRx59djHZY/Yjudnb3oT/3c8/
-NHsFbLbrZaGriLshIwrjEGs=
------END CERTIFICATE-----
------BEGIN RSA PRIVATE KEY-----
-MIICXAIBAAKBgQDDYDYo6BZg+U1+zTHdqRhHhJsEYn1kXOOY1UtWuZFJ3H0X4K+H
-ocoD0A0tl61JHfjmJ3hSFznADVvVgFgJX3i7PA4koLPvZrblY2efEQLEV5Fux976
-kL+bAMZpsMFRjfVnylviCP8S4aTLVRkB/jDrnBm7LDg85NL8FxBknhKmHQIDAQAB
-AoGAZDw9LRl9Ob1No+t0VOuG+FIxEbvR5ya84dE0OMc1ofZL+28bvvMjaHdZ+3Ug
-wy1sX/AKC9u8liqEXfHduNlRX59WfhS1DBIqpezpg3Hj35sCmuGvtiJVMHbZBX0I
-S0P14vXxaGJ/Sw04CgbGJs08P5ITTleZ9HioHhCkUObP5kUCQQD3auQTo/oqbNXz
-FbL1ckP65wUz7ean+YcXDYgKM2jnyEfATMWjjQkMEzO4MJdfuLi+5UbEfup1c1zB
-SmIijzN7AkEAyicud3X+HoV2dwRPzsquvR27fjEsIttzjNJ0Kcm+YAtIQcJQti9e
-E9OMjSsxa8LQ1V8HMWmDYyoAEhdYG1BtRwJAczlTmJYANmvTQ87yNf6ODDY0pReB
-GO9La4AAwAdrLq6GQ9c9H8rZ0MbMilYO2SRU3Yo3Z+FXXXVpWBdFFqUsKwJAKNYn
-bdx5HENLvhkx4g1RpUR3VrOqPdRlEEKHUtW9TnuY+ie91D/XWlv23aGnFyTAuQm8
-U0AEWajnYMA0fTgPCwJBAI1J6nOjlE5jcKKzBAE33iL8lXj5FlGX3hhPM4jm3BCN
-bpmhcfRVwyhqWwYChEQ5Y25Lv0i7Lxpud/UbLE0x/x8=
------END RSA PRIVATE KEY-----

@@ -6,14 +6,17 @@ task :install => 'install:all'
 DAEMON_INSTALL_DIR = ENV['PREFIX'] || "/usr/local/bin"
 
 namespace :install do
-  task :all => [ :prompt, :daemon, :create_dir, :agent, :chrome, :done ]
+  task :all => [ :prompt, :daemon, :create_dir, :agent, :chrome, :certificate, :done ]
 
   task :prompt do
     puts "\e[1m\e[32mdotjs\e[0m"
     puts "\e[1m-----\e[0m"
-    puts "I will install:", ""
+    puts "I will install:"
+    puts
     puts "1. djsd(1) in #{DAEMON_INSTALL_DIR}"
-    puts "2. com.github.dotjs in ~/Library/LaunchAgents",""
+    puts "2. and load com.github.dotjs in ~/Library/LaunchAgents"
+    puts "3. a trusted self-signed certificate"
+    puts
     print "Ok? (y/n) "
 
     begin
@@ -73,6 +76,42 @@ namespace :install do
   task :chrome do
     puts "", "\e[31mIMPORTANT!\e[0m Install the Google Chrome extension:"
     puts "http://bit.ly/dotjs", ""
+  end
+
+  desc "Generate and install a self-signed certificate"
+  task :certificate do
+    require "openssl"
+
+    ssl_key = ssl_cert = nil
+
+    home_path = ENV.fetch("HOME")
+    config_path = File.join(home_path, ".config", "dotjs")
+    ssl_key_path = File.join(config_path, "server.key")
+    ssl_cert_path = File.join(config_path, "server.crt")
+
+    if File.exist? ssl_key_path and File.exist? ssl_cert_path
+      ssl_key = OpenSSL::PKey.read(IO.read(ssl_key_path))
+      ssl_cert = OpenSSL::X509::Certificate.new(IO.read(ssl_cert_path))
+    end
+
+    unless ssl_key and ssl_cert
+      ssl_key = OpenSSL::PKey::RSA.generate(2048)
+
+      ssl_cert = OpenSSL::X509::Certificate.new
+      ssl_cert.version = 2
+      ssl_cert.serial = 1
+      ssl_cert.subject = ssl_cert.issuer = OpenSSL::X509::Name.new([["CN", "localhost"]])
+      ssl_cert.public_key = ssl_key.public_key
+      ssl_cert.not_before = Time.now
+      ssl_cert.not_after = Time.now + (5 * 360 * 24 * 3600)
+      ssl_cert.sign ssl_key, OpenSSL::Digest::SHA256.new
+
+      system "mkdir", "-p", config_path
+      IO.write(ssl_key_path, ssl_key.to_pem, :perm => 0600)
+      IO.write(ssl_cert_path, ssl_cert.to_pem)
+    end
+
+    system "security", "add-trusted-cert", "-r", "trustRoot", "-p", "ssl", "-p", "basic", "-k", File.join(home_path, "Library", "Keychains", "login.keychain"), ssl_cert_path
   end
 end
 
