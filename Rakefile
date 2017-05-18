@@ -53,7 +53,8 @@ namespace :install do
     end
 
     chmod 0644, agent
-    puts "starting djdb..."
+    puts "starting djsd..."
+    sh "launchctl unload #{agent}"
     sh "launchctl load -w #{agent}"
     # wait for server to start
     sleep 5
@@ -104,6 +105,15 @@ namespace :install do
       ssl_cert.public_key = ssl_key.public_key
       ssl_cert.not_before = Time.now
       ssl_cert.not_after = Time.now + (5 * 360 * 24 * 3600)
+
+      ef = OpenSSL::X509::ExtensionFactory.new
+      ef.subject_certificate = ssl_cert
+      ef.issuer_certificate  = ssl_cert
+
+      ssl_cert.add_extension(ef.create_extension("subjectAltName", "DNS: localhost,IP: 127.0.0.1,IP: ::1", false))
+      ssl_cert.add_extension(ef.create_extension("basicConstraints","CA:TRUE",true))
+      ssl_cert.add_extension(ef.create_extension("subjectKeyIdentifier","hash",false))
+      ssl_cert.add_extension(ef.create_extension("authorityKeyIdentifier","keyid:always",false))
       ssl_cert.sign ssl_key, OpenSSL::Digest::SHA256.new
 
       system "mkdir", "-p", config_path

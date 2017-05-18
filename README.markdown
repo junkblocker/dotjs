@@ -61,11 +61,11 @@ modifications. With dotjs, just add or edit files in
 
 Chrome extensions can't access the local filesystem,
 so dotjs  runs a tiny  web server on port  3131 that
-serves files out of ~/.js.
+serves files out of `~/.js`.
 
 You don't  have to worry about  starting or stopping
 this web server because  we put a pretty great plist
-into  ~/Library/LaunchAgents that  handles  all that
+into `~/Library/LaunchAgents` that  handles  all that
 for us.
 
 The dotjs Chrome extension then makes ajax requests
